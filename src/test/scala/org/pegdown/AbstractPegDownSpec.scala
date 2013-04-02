@@ -12,30 +12,13 @@ import ast.Node
 abstract class AbstractPegDownSpec extends Specification {
 
   def test(testName: String)(implicit processor: PegDownProcessor) {
-    val expectedUntidy = FileUtils.readAllTextFromResource(testName + ".html")
-    require(expectedUntidy != null, "Test '" + testName + "' not found")
-    test(testName, tidy(expectedUntidy))
+    implicit val serializer = new ToHtmlSerializer(new LinkRenderer)
+    testWithSerializer(testName)
   }
 
   def test(testName: String, expectedOutput: String)(implicit processor: PegDownProcessor) {
-    val markdown = FileUtils.readAllCharsFromResource(testName + ".md")
-    require(markdown != null, "Test '" + testName + "' not found")
-
-    val astRoot = processor.parseMarkdown(markdown)
-    val actualHtml = new ToHtmlSerializer(new LinkRenderer).toHtml(astRoot)
-
-    // debugging I: check the parse tree
-    //assertEquals(printNodeTree(getProcessor().parser.parseToParsingResult(markdown)), "<parse tree>");
-
-    // debugging II: check the AST
-    // GraphUtils.printTree(astRoot, new ToStringFormatter[Node]) === ""
-
-    // debugging III: check the actual (untidied) HTML
-    // actualHtml === ""
-
-    // tidy up html for fair equality test
-    val tidyHtml = tidy(actualHtml)
-    normalize(tidyHtml) === normalize(expectedOutput)
+    implicit val serializer = new ToHtmlSerializer(new LinkRenderer)
+    testWithSerializer(testName, expectedOutput)
   }
 
   def testAST(testName: String)(implicit processor: PegDownProcessor) {
@@ -51,6 +34,35 @@ abstract class AbstractPegDownSpec extends Specification {
     //assertEquals(printNodeTree(getProcessor().parser.parseToParsingResult(markdown)), "<parse tree>");
 
     normalize(GraphUtils.printTree(astRoot, new ToStringFormatter[Node]())) === normalize(expectedAst)
+  }
+
+  def testWithSerializer(testName: String)(implicit processor: PegDownProcessor,
+      serializer: ToHtmlSerializer) {
+    val expectedUntidy = FileUtils.readAllTextFromResource(testName + ".html")
+    require(expectedUntidy != null, "Test '" + testName + "' not found")
+    testWithSerializer(testName, tidy(expectedUntidy))
+  }
+
+  def testWithSerializer(testName: String, expectedOutput: String)(implicit processor: PegDownProcessor,
+      serializer: ToHtmlSerializer) {
+    val markdown = FileUtils.readAllCharsFromResource(testName + ".md")
+    require(markdown != null, "Test '" + testName + "' not found")
+
+    val astRoot = processor.parseMarkdown(markdown)
+    val actualHtml = serializer.toHtml(astRoot)
+
+    // debugging I: check the parse tree
+    //assertEquals(printNodeTree(getProcessor().parser.parseToParsingResult(markdown)), "<parse tree>");
+
+    // debugging II: check the AST
+    // GraphUtils.printTree(astRoot, new ToStringFormatter[Node]) === ""
+
+    // debugging III: check the actual (untidied) HTML
+    // actualHtml === ""
+
+    // tidy up html for fair equality test
+    val tidyHtml = tidy(actualHtml)
+    normalize(tidyHtml) === normalize(expectedOutput)
   }
 
   def tidy(html: String) = {

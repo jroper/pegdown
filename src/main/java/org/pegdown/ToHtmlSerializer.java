@@ -20,11 +20,9 @@ package org.pegdown;
 
 import org.parboiled.common.StringUtils;
 import org.pegdown.ast.*;
+import org.pegdown.plugins.ToHtmlSerializerPlugin;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 
 import static org.parboiled.common.Preconditions.checkArgNotNull;
 
@@ -34,13 +32,19 @@ public class ToHtmlSerializer implements Visitor {
     protected final Map<String, ReferenceNode> references = new HashMap<String, ReferenceNode>();
     protected final Map<String, String> abbreviations = new HashMap<String, String>();
     protected final LinkRenderer linkRenderer;
+    protected final List<ToHtmlSerializerPlugin> plugins;
 
     protected TableNode currentTableNode;
     protected int currentTableColumn;
     protected boolean inTableHeader;
 
     public ToHtmlSerializer(LinkRenderer linkRenderer) {
+        this(linkRenderer, Collections.<ToHtmlSerializerPlugin>emptyList());
+    }
+
+    public ToHtmlSerializer(LinkRenderer linkRenderer, List<ToHtmlSerializerPlugin> plugins) {
         this.linkRenderer = linkRenderer;
+        this.plugins = plugins;
     }
 
     public String toHtml(RootNode astRoot) {
@@ -323,8 +327,13 @@ public class ToHtmlSerializer implements Visitor {
     }
 
     public void visit(Node node) {
+        for (ToHtmlSerializerPlugin plugin : plugins) {
+            if (plugin.visit(node, this, printer)) {
+                return;
+            }
+        }
         // override this method for processing custom Node implementations
-        throw new RuntimeException("Not implemented");
+        throw new RuntimeException("Don't know how to handle node " + node);
     }
 
     // helpers
